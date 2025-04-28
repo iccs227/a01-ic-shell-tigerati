@@ -7,6 +7,8 @@
 #include "stdlib.h"
 #include "string.h"
 #include "stdbool.h"
+#include "unistd.h"
+#include "sys/wait.h"
 
 #define MAX_CMD_BUFFER 255
 
@@ -20,7 +22,7 @@ void parseCmd(char *buffer, char *cmd) {
 }
 
 int genValidCode(char cmd[]) {
-	char cmds[3][MAX_CMD_BUFFER] = {"echo", "!!", "exit"};	
+	char cmds[3][MAX_CMD_BUFFER] = {"echo", "!!", "exit"};
 	int validCode = 0;
 	for (int j = 0; j < 3; j++) {
 		if (strcmp(cmds[j], cmd) == 0) {
@@ -37,13 +39,23 @@ void printStuff(char buffer[], int idx) {
 	}
 }
 
-void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[]) {
-	if (validCode == 1) {
-		int idx = 0;
-		for (int j = 0; buffer[j] != ' '; j++) {
-			idx++;
-		}
+void buildArgv(char buffer[], char *argv[]) {
+	int i = 0;
+	char *token = strtok(buffer, " \n");
+	while (token != '\0' && i < MAX_CMD_BUFFER-1) {
+		argv[i++] = token;
+		token = strtok('\0', " \n");
+	}
+	argv[i] = '\0';
+}
+
+void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], char *argv[]) {
+	int idx = 0;
+	for (int j = 0; buffer[j] != ' '; j++) {
 		idx++;
+	}
+	idx++;
+	if (validCode == 1) {
 		if (strcmp(cmd, "echo") == 0) {
 			printStuff(buffer, idx);
 			strcpy(prevBuffer, buffer);
@@ -51,12 +63,18 @@ void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[]) {
 		else if (strcmp(cmd, "!!") == 0) {
 			printStuff(prevBuffer, idx);
 		}
-		else {
-			printf("bye\n");
+	}
+	else {
+		int status;
+		int pid;
+		char *prog_argv[MAX_CMD_BUFFER];
+		buildArgv(buffer, prog_argv);
+		pid = fork();
+		if  (pid < 0) {
+			printf("fork failed\n");
 			char num[MAX_CMD_BUFFER];
 			for (int j = 0; buffer[idx] != '\0'; j++) {
-				num[j] = buffer[idx];
-				idx++;
+				num[j] = buffer[idx++];
 			}
 			int exitCode = atoi(num);
 			if (exitCode > 255) {
@@ -64,40 +82,42 @@ void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[]) {
 			}
 			exit(exitCode);
 		}
-	}
-	else if (buffer[0] != '\n' && validCode == 0) {
-		printf("bad command\n");
+		else if (!pid) {
+			execvp(prog_argv[0], prog_argv);
+		}
+		else {
+			waitpid(pid, NULL, 0);
+		}
 	}
 }
 
-void runWithOutFile() {
+void runWithOutFile(char* argv[]) {
 	char prevBuffer[MAX_CMD_BUFFER];
-	char buffer[MAX_CMD_BUFFER]; 
+	char buffer[MAX_CMD_BUFFER];
 	while (1) {
 	        printf("icsh $ ");
 		fgets(buffer, MAX_CMD_BUFFER, stdin);
 		char cmd[MAX_CMD_BUFFER];
 		parseCmd(buffer, cmd);
-		performCmd(buffer, cmd, genValidCode(cmd), prevBuffer);
+		performCmd(buffer, cmd, genValidCode(cmd), prevBuffer, argv);
 	}
 }
 
-int main(int argc, char* argv[]) {
-    char buffer[MAX_CMD_BUFFER];
-    if (argc == 1) {
-	runWithOutFile();
-    }
-    else {
+void runWithFile(char* argv[]) {
+	char buffer[MAX_CMD_BUFFER];
 	FILE *fptr = fopen(argv[1], "r");
 	char prevBuffer[MAX_CMD_BUFFER] = {0};
 	while (fgets(buffer, MAX_CMD_BUFFER, fptr)) {
 		char cmd[MAX_CMD_BUFFER];
 		parseCmd(buffer, cmd);
-		performCmd(buffer, cmd, genValidCode(cmd), prevBuffer);
+		performCmd(buffer, cmd, genValidCode(cmd), prevBuffer, argv);
 		if (strcmp(cmd, "!!") != 0) {
 			strcpy(prevBuffer, buffer);
 		}
 	}
 	fclose(fptr);
-    }
+}
+
+int main(int argc, char* argv[]) {
+	runWithOutFile(argv);
 }
