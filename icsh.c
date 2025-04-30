@@ -9,6 +9,7 @@
 #include "stdbool.h"
 #include "unistd.h"
 #include "sys/wait.h"
+#include "signal.h"
 
 #define MAX_CMD_BUFFER 255
 
@@ -49,38 +50,63 @@ void buildArgv(char buffer[], char *argv[]) {
 	argv[i] = '\0';
 }
 
-void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], char *argv[]) {
+void exitHandler(char buffer[]) {
+	// Skip the space
 	int idx = 0;
 	for (int j = 0; buffer[j] != ' '; j++) {
 		idx++;
 	}
 	idx++;
+	
+	char num[MAX_CMD_BUFFER];
+	for (int j = 0; buffer[idx] != '\0'; j++) {
+		num[j] = buffer[idx++];
+	}
+	int exitCode = atoi(num);
+
+	if (exitCode > 255) {
+		exit(exitCode & 0xFF);
+	}
+	exit(exitCode);
+}
+
+void handle_sigtstp(int sig) {
+	
+}
+
+void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], char *argv[]) {
 	if (validCode == 1) {
+		int idx = 0;
+		for (int j = 0; buffer[j] != ' '; j++) {
+			idx++;
+		}
+		idx++;
+
 		if (strcmp(cmd, "echo") == 0) {
 			printStuff(buffer, idx);
 			strcpy(prevBuffer, buffer);
 		}
+
 		else if (strcmp(cmd, "!!") == 0) {
+			printf("%s", prevBuffer);
 			printStuff(prevBuffer, idx);
 		}
+
+		else if (strcmp(cmd, "exit") == 0) {
+			exitHandler(buffer);
+		}
 	}
+
 	else {
 		int status;
 		int pid;
 		char *prog_argv[MAX_CMD_BUFFER];
+
 		buildArgv(buffer, prog_argv);
 		pid = fork();
 		if  (pid < 0) {
 			printf("fork failed\n");
-			char num[MAX_CMD_BUFFER];
-			for (int j = 0; buffer[idx] != '\0'; j++) {
-				num[j] = buffer[idx++];
-			}
-			int exitCode = atoi(num);
-			if (exitCode > 255) {
-				exit(exitCode & 0xFF);
-			}
-			exit(exitCode);
+			exitHandler(buffer);
 		}
 		else if (!pid) {
 			execvp(prog_argv[0], prog_argv);
@@ -94,8 +120,9 @@ void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], cha
 void runWithOutFile(char* argv[]) {
 	char prevBuffer[MAX_CMD_BUFFER];
 	char buffer[MAX_CMD_BUFFER];
+
 	while (1) {
-	        printf("icsh $ ");
+	    printf("icsh $ ");
 		fgets(buffer, MAX_CMD_BUFFER, stdin);
 		char cmd[MAX_CMD_BUFFER];
 		parseCmd(buffer, cmd);
