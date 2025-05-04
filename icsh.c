@@ -13,6 +13,10 @@
 
 #define MAX_CMD_BUFFER 255
 
+pid_t foreground_pid;
+pid_t background_pid;
+int last_status = 0;
+
 void parseCmd(char *buffer, char *cmd) {
 	int i = 0;
 	while (buffer[i] != ' ' && buffer[i] != '\n' && buffer[i] != '\0') {
@@ -70,10 +74,6 @@ void exitHandler(char buffer[]) {
 	exit(exitCode);
 }
 
-void handle_sigtstp(int sig) {
-	
-}
-
 void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], char *argv[]) {
 	if (validCode == 1) {
 		int idx = 0;
@@ -83,6 +83,10 @@ void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], cha
 		idx++;
 
 		if (strcmp(cmd, "echo") == 0) {
+			if (buffer[idx] == '$' && buffer[idx+1] == '?') {
+				printf("%d\n", last_status);
+				return;
+			}
 			printStuff(buffer, idx);
 			strcpy(prevBuffer, buffer);
 		}
@@ -95,6 +99,7 @@ void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], cha
 		else if (strcmp(cmd, "exit") == 0) {
 			exitHandler(buffer);
 		}
+		last_status = 0;
 	}
 
 	else {
@@ -107,22 +112,75 @@ void performCmd(char buffer[], char cmd[], int validCode, char prevBuffer[], cha
 		if  (pid < 0) {
 			printf("fork failed\n");
 			exitHandler(buffer);
+			return;
 		}
 		else if (!pid) {
 			execvp(prog_argv[0], prog_argv);
+			
+			perror(prog_argv[0]);
+			printf("Bad command\n");
+			exit(127);
 		}
 		else {
-			waitpid(pid, NULL, 0);
+			foreground_pid = pid;
+			waitpid(pid, &status, WUNTRACED);
+			foreground_pid = 0;
+			if (WIFEXITED(status)) {
+				last_status = WEXITSTATUS(status);
+			}
+			else if (WIFSIGNALED(status)) {
+				last_status = 128 + WTERMSIG(status);
+			}
 		}
 	}
 }
 
+void handle_sigtstp(int sig) {
+	if (foreground_pid == 0) {
+		printf("\nSigTSTP, no foreground process to stop\n");
+		printf("icsh $ ");
+		fflush(stdout);
+		return;
+	}
+	background_pid = foreground_pid;
+	kill(foreground_pid, SIGTSTP);
+	printf("\n");
+}
+
+void handle_sigint(int sig) {
+	if (foreground_pid == 0) {
+		printf("\nSigINT, no foreground process to stop\n");
+		printf("icsh $ ");
+		fflush(stdout);
+		return;
+	}
+	background_pid = foreground_pid;
+	kill(foreground_pid, SIGINT);
+	printf("\n");
+}
+
+// This function is called when the program is run without a file
+// It will read commands from the standard input
 void runWithOutFile(char* argv[]) {
 	char prevBuffer[MAX_CMD_BUFFER];
-	char buffer[MAX_CMD_BUFFER];
+	char buffer[MAX_CMD_BUFFER]; // store the user command
+
+	struct sigaction sig_int_action, sig_tstp_action;
+
+	sigemptyset(&sig_int_action.sa_mask);
+	sig_int_action.sa_handler = &handle_sigint;
+	sig_int_action.sa_flags = SA_RESTART;
+
+	sigemptyset(&sig_tstp_action.sa_mask);
+	sig_tstp_action.sa_handler = &handle_sigtstp;
+	sig_tstp_action.sa_flags = SA_RESTART;
+
+	sigaction(SIGINT, &sig_int_action, NULL);
+	sigaction(SIGTSTP, &sig_tstp_action, NULL);
 
 	while (1) {
 	    printf("icsh $ ");
+		fflush(stdout);
 		fgets(buffer, MAX_CMD_BUFFER, stdin);
 		char cmd[MAX_CMD_BUFFER];
 		parseCmd(buffer, cmd);
@@ -131,6 +189,7 @@ void runWithOutFile(char* argv[]) {
 }
 
 void runWithFile(char* argv[]) {
+	printf("*******Welcome to my shell*******\n");
 	char buffer[MAX_CMD_BUFFER];
 	FILE *fptr = fopen(argv[1], "r");
 	char prevBuffer[MAX_CMD_BUFFER] = {0};
