@@ -1,11 +1,13 @@
 CC=gcc
 CFLAGS=-Wall -g 
 BINARY=icsh
+SRCS=icsh.c exec.c execscript.c preparecmd.c sigHandler.c util.c
+OBJS=$(SRCS:.c=.o)
 
-all: icsh
+all: $(BINARY)
 
-icsh: icsh.c
-	$(CC) -o $(BINARY) $(CFLAGS) $<
+icsh: $(SRCS) 
+	$(CC) $(CFLAGS) -o $(BINARY) $(SRCS)
 
 .PHONY: clean
 
