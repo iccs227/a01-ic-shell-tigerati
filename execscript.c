@@ -85,14 +85,21 @@ void redirect(char buffer[], char prevBuffer[], char *argv[]) {
 void runWithFile(char* argv[]) {
 	printf("*******Script Mode*******\n");
 	char buffer[MAX_CMD_BUFFER];
-	char prevBuffer[MAX_CMD_BUFFER] = {0};
+	char prevBuffer[MAX_CMD_BUFFER];
 	FILE *fptr = fopen(argv[1], "r");
 	if (fptr != NULL) {
 		while (fgets(buffer, MAX_CMD_BUFFER, fptr)) {
 			char cmd[MAX_CMD_BUFFER];
 			parseCmd(buffer, cmd);
-			performCmd(buffer, cmd, genValidCode(cmd), prevBuffer, argv);
+			int validCode = genValidCode(cmd);
+			if (validCode) {
+				runBuildInCmd(buffer, cmd, prevBuffer, argv);
+			}
+			else {
+				performCmd(buffer, cmd, prevBuffer, argv);
+			}
 			if (strcmp(cmd, "!!") != 0) {
+				memset(prevBuffer, '\0', MAX_CMD_BUFFER);
 				strcpy(prevBuffer, buffer);
 			}
 		}

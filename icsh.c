@@ -11,7 +11,6 @@
 int main(int argc, char* argv[]) {
 	printf("Starting IC Shell\n");
 	if (argc == 2) { 
-		printf("script mode\n");
 		runWithFile(argv);
 	}
 	else { runWithOutFile(argv); }
