@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <string.h>
 #include "job.h"
+#include "background.h"
 
 extern pid_t foreground_pid;
 extern Job jobs[];
@@ -19,6 +20,8 @@ void handle_sigchld(int sig) {
 			if (jobs[i].pid == pid) {
 				if (WIFEXITED(status)) {
 					strcpy(jobs[i].status, "Done");
+					printf("[%d] %s\t%s", jobs[i].job_id, jobs[i].status, jobs[i].command);
+					removeJob(i);
 				}
 				else if (WIFSIGNALED(status)) {
 					strcpy(jobs[i].status, "Terminated");

@@ -5,6 +5,10 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <signal.h>
+#include <stddef.h>
+#include <sys/wait.h>
+#include <sys/ioctl.h>
+#include <sys/termios.h>
 #include <fcntl.h>
 #include "preparecmd.h"
 #include "sigHandler.h"
@@ -106,48 +110,45 @@ void runBuildInCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 }
 
 void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
-	int status;
-	int pid;
-		
-	pid = fork();
-	if  (pid < 0) {
-		perror("Fork failed\n");
-		exit(errno);
-		return;
-	}
-	else if (!pid) {
-		// Child process
-		char *prog_argv[MAX_CMD_BUFFER];
-		buildArgv(buffer, prog_argv);
-		execvp(prog_argv[0], prog_argv);
-		
-		perror("Bad command");
-		fflush(stdout);
-		exit(errno);
-	}
+    int status;
+    pid_t pid;
+
+    pid = fork();
+    if (pid < 0) {
+        perror("Fork failed");
+        exit(errno);
+    } 
+	else if (pid == 0) {
+        setpgid(0, 0);  // Create new process group with child's PID
+        signal(SIGINT, SIG_DFL);
+        signal(SIGTSTP, SIG_DFL);
+        signal(SIGQUIT, SIG_DFL);
+
+        char *prog_argv[MAX_CMD_BUFFER];
+        buildArgv(buffer, prog_argv);
+        execvp(prog_argv[0], prog_argv);
+
+        perror("Bad command");
+        exit(errno);
+    } 
 	else {
-		foreground_pid = pid;
-		waitpid(pid, &status, WUNTRACED);
-		
-		if (WIFEXITED(status)) {
-			last_status = WEXITSTATUS(status);
-		}
-		if (WIFSTOPPED(status)) {
-			// Add job to the background
-			printf("\n");
-			addJob(pid, ori_buffer, "Stopped", '+');
-			printf("[%d]%c %s\t%s", job_count, jobs[job_count - 1].indicator, jobs[job_count - 1].status, jobs[job_count - 1].command);
-			foreground_pid = 0; // Reset foreground process
-		}
-		else if (WIFSIGNALED(status)) {
-			printf("Process terminated by signal %d\n", WTERMSIG(status));
-			last_status = status;
-		}
-		else {
-			last_status = 1;
-		}
-	}
+        setpgid(pid, pid);  // Ensure child is in its own process group
+		signal(SIGTTOU, SIG_IGN); // Ignore when shell tries to set terminal control from bg
+        tcsetpgrp(STDIN_FILENO, pid);  // Give terminal control to child
+        waitpid(pid, &status, WUNTRACED);  // Wait for child status
+        tcsetpgrp(STDIN_FILENO, getpid()); // Always regain terminal control
+
+        if (WIFEXITED(status)) { last_status = WEXITSTATUS(status); }
+		else if (WIFSTOPPED(status)) {
+            addJob(pid, buffer, "Stopped", '+');
+            printf("\n[%d]%c %s\t%s", job_count, jobs[job_count - 1].indicator,
+                   jobs[job_count - 1].status, jobs[job_count - 1].command);
+        } 
+		else if (WIFSIGNALED(status)) { last_status = status; } 
+		else { last_status = 1; }
+    }
 }
+
 
 void runWithOutFile(char* argv[]) {
 	char prevBuffer[MAX_CMD_BUFFER];
