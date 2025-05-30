@@ -13,6 +13,7 @@ void parseCmd(char buffer[], char *cmd) {
 	cmd[i] = '\0';
 }
 
+// split buffer into token
 void buildArgv(char buffer[], char *argv[]) {
 	int i = 0;
 	char *token = strtok(buffer, " \n");

@@ -1,22 +1,28 @@
-background.c
-background.h
-exec.c
-exec.h
-execscript.c
-execscript.h
-icsh
-icsh.c
-job.h
-__MACOSX
-Makefile
-preparecmd.c
-preparecmd.h
-README.md
-sigHandler.c
-sigHandler.h
-test
-test.c
-test.sh
-test.txt
-util.c
-util.h
+total 160
+drwxrwxr-x  5 vboxuser vboxuser  4096 May 30 12:11 .
+drwxr-x--- 21 vboxuser vboxuser  4096 May 29 09:30 ..
+-rw-rw-r--  1 vboxuser vboxuser  2449 May 30 11:32 background.c
+-rw-rw-r--  1 vboxuser vboxuser   186 May 30 11:32 background.h
+-rw-rw-r--  1 vboxuser vboxuser  5930 May 30 11:32 exec.c
+-rw-rw-r--  1 vboxuser vboxuser   241 May 30 11:32 exec.h
+-rw-rw-r--  1 vboxuser vboxuser  2303 May 30 11:32 execscript.c
+-rw-rw-r--  1 vboxuser vboxuser    94 May 30 11:32 execscript.h
+drwxrwxr-x  8 vboxuser vboxuser  4096 May 30 12:10 .git
+-rw-rw-r--  1 vboxuser vboxuser    13 Apr 25 14:47 .gitignore
+-rwxrwxr-x  1 vboxuser vboxuser 44200 May 30 12:11 icsh
+-rw-rw-r--  1 vboxuser vboxuser   340 May 30 11:32 icsh.c
+-rw-rw-r--  1 vboxuser vboxuser   220 May 30 11:32 job.h
+drwxrwxr-x  2 vboxuser vboxuser  4096 May 18 04:53 __MACOSX
+-rw-rw-r--  1 vboxuser vboxuser   243 May 30 11:32 Makefile
+-rw-rw-r--  1 vboxuser vboxuser   457 May 30 11:32 preparecmd.c
+-rw-rw-r--  1 vboxuser vboxuser    84 May  8 11:02 preparecmd.h
+-rw-rw-r--  1 vboxuser vboxuser   271 Apr 25 14:47 README.md
+-rw-rw-r--  1 vboxuser vboxuser  1304 May 30 11:32 sigHandler.c
+-rw-rw-r--  1 vboxuser vboxuser   118 May 30 11:32 sigHandler.h
+-rwxrwxr-x  1 vboxuser vboxuser 16384 May 28 03:11 test
+-rw-rw-r--  1 vboxuser vboxuser   821 May 28 03:12 test.c
+-rw-rw-r--  1 vboxuser vboxuser    32 Apr 26 08:48 test.sh
+-rw-rw-r--  1 vboxuser vboxuser     0 May 30 12:11 test.txt
+-rw-rw-r--  1 vboxuser vboxuser  1126 May 30 11:32 util.c
+-rw-rw-r--  1 vboxuser vboxuser   136 May 30 11:32 util.h
+drwxrwxr-x  2 vboxuser vboxuser  4096 May  8 11:02 .vscode

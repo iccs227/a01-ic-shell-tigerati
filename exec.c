@@ -92,23 +92,6 @@ void runBuildInCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 		
 	}
 
-	else if (strcmp(cmd, "cd") == 0) {
-		char *dir = argv[1];
-
-		if (dir == NULL || strcmp(dir, "~") == 0) {
-			dir = getenv("HOME");
-		}
-		
-		else if (dir[0] == '~') {
-			char *home = getenv("HOME");
-			char path[MAX_CMD_BUFFER];
-			snprintf(path, sizeof(path), "%s%s", home, dir + 1);
-			dir = path;
-		}
-
-		if (chdir(dir) != 0) { perror("cd"); }
-	}
-
 	else if (strcmp(cmd, "exit") == 0) { exitHandler(buffer); }
 
 	else if (strcmp(cmd, "jobs") == 0) { jobCmd(); }
@@ -127,6 +110,8 @@ void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
     } 
 	else if (pid == 0) {
         setpgid(0, 0);  // Create new process group with child's PID
+		
+		//reset so child process wouldn't ignore or terminate those sig
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
@@ -150,13 +135,13 @@ void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 		foreground_pid = 0;
 
         if (WIFEXITED(status)) { last_status = WEXITSTATUS(status); }
-		else if (WIFSTOPPED(status)) {
+		else if (WIFSTOPPED(status)) { // case sigtstp
             addJob(pid, buffer, "Stopped", '+');
             printf("\n[%d]%c %s\t%s", job_count, jobs[job_count - 1].indicator,
                    jobs[job_count - 1].status, jobs[job_count - 1].command);
         } 
-		else if (WIFSIGNALED(status)) { last_status = status; } 
-		else { last_status = 1; }
+		else if (WIFSIGNALED(status)) { last_status = status; } // terminated by signal
+		else { last_status = 1; } // general error
     }
 }
 
@@ -164,7 +149,6 @@ void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 void runWithOutFile(char* argv[]) {
 	char prevBuffer[MAX_CMD_BUFFER];
 	char buffer[MAX_CMD_BUFFER]; // store the user command
-	char cwd[255];
 
 	struct sigaction sig_int_action, sig_tstp_action, sig_cont_action, sig_chld_action;
 
@@ -190,8 +174,7 @@ void runWithOutFile(char* argv[]) {
 	sigaction(SIGCHLD, &sig_chld_action, NULL);
 
 	while (1) {
-		getcwd(cwd, sizeof(cwd));
-		printf("icsh:%s$ ", cwd);
+		printf("icsh $ ");
 
 	    // printf("icsh $ ");
 		fflush(stdout);

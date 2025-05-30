@@ -20,7 +20,9 @@ void handle_sigchld(int sig) {
 			if (jobs[i].pid == pid) {
 				if (WIFEXITED(status)) {
 					strcpy(jobs[i].status, "Done");
-					printf("\n[%d] %s\t%s\n", jobs[i].job_id, jobs[i].status, jobs[i].command);
+					printf("\n[%d] %s\t%s", jobs[i].job_id, jobs[i].status, jobs[i].command);
+					printf("icsh $ ");
+					fflush(stdout);
 					removeJob(i);
 				}
 				else if (WIFSIGNALED(status)) {
