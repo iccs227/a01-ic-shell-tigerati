@@ -20,7 +20,7 @@ void handle_sigchld(int sig) {
 			if (jobs[i].pid == pid) {
 				if (WIFEXITED(status)) {
 					strcpy(jobs[i].status, "Done");
-					printf("[%d] %s\t%s", jobs[i].job_id, jobs[i].status, jobs[i].command);
+					printf("\n[%d] %s\t%s\n", jobs[i].job_id, jobs[i].status, jobs[i].command);
 					removeJob(i);
 				}
 				else if (WIFSIGNALED(status)) {
@@ -33,23 +33,23 @@ void handle_sigchld(int sig) {
 
 void handle_sigcont(int sig) {
 	if (foreground_pid == 0) {
-		printf("\nSigCONT, no foreground process to continue\n");
+		printf("\nSigCONT, no foreground process\n");
 		printf("icsh $ ");
 		fflush(stdout);
 		return;
 	}
-
-	kill(foreground_pid, sig);
 	printf("\n");
+	kill(foreground_pid, sig);
 }
 
 void handle_sigtstp(int sig) {
 	if (foreground_pid == 0) {
-		printf("\nSigTSTP, no foreground process to stop\n");
+		printf("\nSigTSTP, no foreground process\n");
 		printf("icsh $ ");
 		fflush(stdout);
 		return;
 	}
+	printf("\n");
 	kill(foreground_pid, sig);
 }
 
@@ -60,7 +60,6 @@ void handle_sigint(int sig) {
 		fflush(stdout);
 		return;
 	}
-
-	kill(foreground_pid, sig);
 	printf("\n");
+	kill(foreground_pid, sig);
 }

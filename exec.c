@@ -33,58 +33,7 @@ void runBuildInCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 	}
 	idx++;
 
-	if (strcmp(cmd, "echo") == 0) {
-		if (buffer[idx] == '$' && buffer[idx+1] == '?') {
-			printf("%d\n", last_status);
-			return;
-		}
-		printStuff(buffer, idx);
-	}
-
-	else if (strcmp(cmd, "fg") == 0) {
-		backToForeground(extractJobId(ori_buffer));
-	}
-
-	else if (strcmp(cmd, "bg") == 0) {
-		int idx = extractJobId(ori_buffer) - 1;
-
-		if (idx + 1 < 1 || idx + 1 > job_count) {
-			printf("No such job\n");
-			return;
-		}
-
-		pid_t pid = jobs[idx].pid;
-		if (pid == foreground_pid) {
-			printf("Job %d is already in the foreground\n", idx+1);
-			return;
-		}
-		
-		strcpy(jobs[idx].status, "Running");
-		kill(pid, SIGCONT);
-		printf("[%d]%c %s", jobs[idx].job_id, jobs[idx].indicator, jobs[idx].command);
-		
-	}
-
-	else if (strcmp(cmd, "cd") == 0) {
-		char *path = buffer + idx;
-		path[strcspn(path, "\n")] = '\0'; // Remove newline character
-		if (chdir(path) != 0) {
-			perror("cd failed");
-			last_status = errno;
-		} else {
-			last_status = 0;
-		}
-	}
-
-	else if (strcmp(cmd, "exit") == 0) {
-		exitHandler(buffer);
-	}
-
-	else if (strcmp(cmd, "jobs") == 0) {
-		jobCmd();
-	}
-
-	else if (strcmp(cmd, "!!") == 0) {
+	if (strcmp(cmd, "!!") == 0) {
 		pid_t pid = fork();
 		if (pid == 0) {
 			char cmd[MAX_CMD_BUFFER];
@@ -106,7 +55,65 @@ void runBuildInCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 		}
 		return;
 	}
-	last_status = 0;
+
+	else if (strcmp(cmd, "echo") == 0) {
+		if (buffer[idx] == '$' && buffer[idx+1] == '?') {
+			printf("%d\n", last_status);
+			return;
+		}
+		printStuff(buffer, idx);
+	}
+
+	else if (strcmp(cmd, "fg") == 0) { 
+		backToForeground(extractJobId(ori_buffer));
+		last_status = 0;
+		return;
+	}
+
+	else if (strcmp(cmd, "bg") == 0) {
+		int idx = extractJobId(ori_buffer) - 1;
+
+		if (idx + 1 < 1 || idx + 1 > job_count) {
+			printf("No such job\n");
+			last_status = 0;
+			return;
+		}
+
+		pid_t pid = jobs[idx].pid;
+		if (pid == foreground_pid) {
+			printf("Job %d is already in the foreground\n", idx+1);
+			last_status = 0;
+			return;
+		}
+		
+		strcpy(jobs[idx].status, "Running");
+		kill(pid, SIGCONT); // send sig to cont its task
+		printf("[%d]%c %s", jobs[idx].job_id, jobs[idx].indicator, jobs[idx].command);
+		
+	}
+
+	else if (strcmp(cmd, "cd") == 0) {
+		char *dir = argv[1];
+
+		if (dir == NULL || strcmp(dir, "~") == 0) {
+			dir = getenv("HOME");
+		}
+		
+		else if (dir[0] == '~') {
+			char *home = getenv("HOME");
+			char path[MAX_CMD_BUFFER];
+			snprintf(path, sizeof(path), "%s%s", home, dir + 1);
+			dir = path;
+		}
+
+		if (chdir(dir) != 0) { perror("cd"); }
+	}
+
+	else if (strcmp(cmd, "exit") == 0) { exitHandler(buffer); }
+
+	else if (strcmp(cmd, "jobs") == 0) { jobCmd(); }
+
+	last_status = 0; // status code when executed by built-in cmd
 }
 
 void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
@@ -116,7 +123,7 @@ void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
     pid = fork();
     if (pid < 0) {
         perror("Fork failed");
-        exit(errno);
+        exit(EXIT_FAILURE);
     } 
 	else if (pid == 0) {
         setpgid(0, 0);  // Create new process group with child's PID
@@ -129,14 +136,18 @@ void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
         execvp(prog_argv[0], prog_argv);
 
         perror("Bad command");
-        exit(errno);
+        exit(EXIT_FAILURE);
     } 
 	else {
         setpgid(pid, pid);  // Ensure child is in its own process group
 		signal(SIGTTOU, SIG_IGN); // Ignore when shell tries to set terminal control from bg
-        tcsetpgrp(STDIN_FILENO, pid);  // Give terminal control to child
+		tcsetpgrp(STDIN_FILENO, pid);  // Give terminal control to child group
+		
+		foreground_pid = pid;
         waitpid(pid, &status, WUNTRACED);  // Wait for child status
-        tcsetpgrp(STDIN_FILENO, getpid()); // Always regain terminal control
+        tcsetpgrp(STDIN_FILENO, getpid()); // Always regain terminal control to shell
+
+		foreground_pid = 0;
 
         if (WIFEXITED(status)) { last_status = WEXITSTATUS(status); }
 		else if (WIFSTOPPED(status)) {
@@ -153,6 +164,7 @@ void performCmd(char buffer[], char cmd[], char prevBuffer[], char *argv[]) {
 void runWithOutFile(char* argv[]) {
 	char prevBuffer[MAX_CMD_BUFFER];
 	char buffer[MAX_CMD_BUFFER]; // store the user command
+	char cwd[255];
 
 	struct sigaction sig_int_action, sig_tstp_action, sig_cont_action, sig_chld_action;
 
@@ -178,11 +190,14 @@ void runWithOutFile(char* argv[]) {
 	sigaction(SIGCHLD, &sig_chld_action, NULL);
 
 	while (1) {
-	    printf("icsh $ ");
+		getcwd(cwd, sizeof(cwd));
+		printf("icsh:%s$ ", cwd);
+
+	    // printf("icsh $ ");
 		fflush(stdout);
 		fgets(buffer, MAX_CMD_BUFFER, stdin);
 		strcpy(ori_buffer, buffer);
-		// check if redirection is present
+
 		if (strchr(buffer, '<') != NULL || strchr(buffer, '>') != NULL) {
 			redirect(buffer, prevBuffer, argv);
 			continue; // Skip further processing if redirection is handled
@@ -198,12 +213,13 @@ void runWithOutFile(char* argv[]) {
 		parseCmd(buffer, cmd);
 
 		int validCode = genValidCode(cmd);
-
 		if (validCode) { runBuildInCmd(buffer, cmd, prevBuffer, argv); }
 		
 		else { performCmd(buffer, cmd, prevBuffer, argv); }
-		
-		memset(prevBuffer, '\0', MAX_CMD_BUFFER);
-		strcpy(prevBuffer, ori_buffer);
+
+		if (strcmp(buffer, "!!\n") != 0) {
+			memset(prevBuffer, '\0', MAX_CMD_BUFFER);
+			strcpy(prevBuffer, ori_buffer);
+		}
 	}
 }

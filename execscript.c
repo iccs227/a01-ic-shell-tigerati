@@ -43,9 +43,7 @@ void redirect(char buffer[], char prevBuffer[], char *argv[]) {
 				last_status = 1;
 				return;
 			}
-		} else {
-			cmd_args[j++] = prog_argv[i];
-		}
+		} else { cmd_args[j++] = prog_argv[i]; }
 	}
 	cmd_args[j] = NULL;
 
@@ -73,12 +71,8 @@ void redirect(char buffer[], char prevBuffer[], char *argv[]) {
 		waitpid(pid, &status, WUNTRACED);
 		foreground_pid = 0;
 
-		if (WIFEXITED(status)) {
-			last_status = WEXITSTATUS(status);
-		}
-		else if (WIFSIGNALED(status)) {
-			last_status = 128 + WTERMSIG(status);
-		}
+		if (WIFEXITED(status)) { last_status = WEXITSTATUS(status); }
+		else if (WIFSIGNALED(status)) { last_status = 128 + WTERMSIG(status); }
 	}
 }
 

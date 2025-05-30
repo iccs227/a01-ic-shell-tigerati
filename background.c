@@ -94,9 +94,6 @@ void createBackgroundJob(char buffer[]) {
 }
 
 void jobCmd() {
-	if (job_count == 0) {
-		printf("No job available\n");
-	}
 	int idxToRemove[MAX_CMD_BUFFER];
 	for (int i = 0; i < job_count; i++) {
 		printf("[%d]%c  %s\t %s", jobs[i].job_id, jobs[i].indicator, jobs[i].status, jobs[i].command);

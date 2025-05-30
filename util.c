@@ -6,14 +6,13 @@
 #include <signal.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "preparecmd.h"
 
 #define MAX_CMD_BUFFER 255
 
 int genValidCode(char cmd[]) {
-	char cmds[6][5] = {"echo", "!!", "exit", "jobs", "fg", "bg"};
+	char cmds[7][5] = {"echo", "!!", "exit", "jobs", "fg", "bg", "cd"};
 	int validCode = 0;
-	for (int j = 0; j < 6; j++) {
+	for (int j = 0; j < 7; j++) {
 		if (strcmp(cmds[j], cmd) == 0) {
 			validCode = 1;
 		}
